@@ -1,0 +1,211 @@
+---
+title: "Machine Learning: Evaluate Weight Lifting Techniques"
+output: html_document
+
+---
+
+```{r setup, include = FALSE, echo = TRUE, results = "hide"}
+ipak <- function(pkg){
+      new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+      if (length(new.pkg)) 
+            install.packages(new.pkg, dependencies = TRUE)
+      sapply(pkg, require, character.only = TRUE)
+}
+
+### Package Usage
+packages <- c("plyr", "dplyr", "data.table", "dtplyr", "lubridate", "ggplot2", "scales",
+                  "reshape2", "knitr", "R.cache", "stringr", "gtools", "quantreg",
+                  "graphics", "corrplot", "broom", "rmarkdown", "caret", "randomForest",
+                  "gbm", "forecast", "elasticnet", "e1071", "glmnet", "quantmod", "rpart",
+                  "rpart.plot", "rattle", "knitr", "tidyverse", "purrr")
+ipak(packages)
+```
+
+## Executive Summary  
+**Background** 
+```r
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.  
+```
+**Analysis Goal**  
+```r
+In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here:  
+```
+<http://groupware.les.inf.puc-rio.br/har>  (see the section on the Weight Lifting Exercise Dataset). 
+
+## Data Processing
+
+**Load Data into R**  
+```{r load_weightlift_csv, include = TRUE, echo = TRUE, results = "hold"}
+train.file = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test.file = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+training <- fread(train.file, sep = ",", header = TRUE, 
+                  na.strings = c("NA", "N/A", "NULL", "Null", "null", " ", "  ", "#DIV/0!"))
+testing <- fread(test.file, sep = ",", header = TRUE, 
+                  na.strings = c("NA", "N/A", "NULL", "Null", "null", " ", "  "), "#DIV/0!") 
+```
+
+
+**Create Vaidation Set**  
+To allow for a validation of the models to occur before evaluating predictive accuracy on test set, a validation set, is created.  The validation set will take a portion of the records from the current 'training' set.  The balance training observations will remain in the testing set.  Below is the code for partitioning the training set into 'training' and 'validation' sets.  
+```{r testing_partition, include = TRUE, echo = TRUE}
+inTrain = createDataPartition(training$classe, p = 0.7, list = FALSE)
+training = training[inTrain,]
+validation = training[-inTrain,]
+```
+
+
+
+
+
+## Exploratory Data Analysis  
+
+To obtain a high-level insight to the relationship of the different variables in the data set, we created a panel plot and correlation matrix (see Appendix: Figure 1 & Figure 2) to understand the relationships.  We find that the variables cyl, disp, hp, and wt have the strongest relationship with mpg.
+```{r dataset_overview, include = FALSE, echo = FALSE, results = "hide"}
+str(mtcars)
+head(mtcars)
+```
+
+
+
+### Exhibit 1: Correlation Factor of Each Variable with MPG
+```{r corr_matrix_grid, include = TRUE, echo = TRUE, results = "markup"}
+mtcars.cor <- round(cor(mtcars), 3)
+mtcars.cor[1,]
+```
+
+
+## Regression Analysis
+Here we look build and compare various regression models to identify a model that best fits data.  We use several metrics to evaluate our model fit, including: adjusted r-square, residual squared error (sigma), and p-values.  We also use ANOVA and an analysis of the residuals to evaluate the model. Regression 'fit4' determined to provide best fit.
+
+### Regression Models
+```{r regression_models, include = TRUE, echo = TRUE, results = "hide"}
+fit1 <- lm(mpg ~ am, data = mtcars2)
+fit10 <- lm(mpg ~ ., data = mtcars2)
+bestfit <- step(fit10, direction = "both")   ## stepwise process to identify best fit
+
+## Obtained by manually adding / removing variables (using correlations as guide)
+fit3 <- lm(mpg ~ am + wt + cyl, data = mtcars2)
+fit4 <- lm(mpg ~ am + wt + cyl + hp, data = mtcars2)
+```
+
+```{r regression_stats_smry, include = FALSE, echo = FALSE, results = "hide"}
+coef1 <- round(summary(fit1)$coef, 4)
+glance1 <- round(glance(fit1)[1:6], 4)
+
+coef10 <- round(summary(fit10)$coef, 4)
+glance10 <- round(glance(fit10)[1:6], 4)
+
+coef.best <- round(summary(bestfit)$coef, 4)
+glance.best <- round(glance(bestfit)[1:6], 4)
+
+coef3 <- round(summary(fit3)$coef, 4)
+glance3 <- round(glance(fit3)[1:6], 4)
+
+coef4 <- round(summary(fit4)$coef, 4)
+glance4 <- round(glance(fit4)[1:6], 4)
+```
+
+
+### Comparison of Regression Models
+Two comparisons performed to evaluate the best model.  The first is a comparison of the r.square and p-value for each model.  Then, we perform ANOVA test to evaluate whether model is significantly better.
+
+#### Exhbit 2: R.Square, Sigma, and P-value Comparisons
+```{r regression_compare, include = TRUE, echo = FALSE, results = "markup"}
+model <- c("fit1", "fit3", "fit4", "bestfit", "fit10")
+model.compare <- rbind(glance1,glance3, glance4, glance.best, glance10)
+model.compare <- cbind(model, model.compare)
+model.compare
+```
+
+
+#### Exhibit 3: ANOVA
+```{r model_compare_anova, include = TRUE, echo = FALSE, results = "markup"}
+mpg.anova <- anova(fit1, fit3, fit4)
+mpg.anova
+```
+
+
+## Residuals & Diagnostics
+Understanding residuals is critical to understanding how well the regression model fits the data.  The different plots (see Appendix: Figure 3) provide some insight to how closely the regression line fits the data.  Although a few "outlier" points noted, the results seem to validate model fit.
+
+1. Residuals vs Fitted: Want to see that the residuals are fairly well-distributed and no particular pattern exists.  
+2. Normal Q-Q: Ideally, residuals are lined closely with the straight dashed line.  
+3. Scale-Location(homoscedasticity): Ideally, points are equally spread around a line along the entire range of predictors.  
+4. Cooks distance: Visually illustrates those points that are outliers and may influence coefficients.
+
+
+### High Leverage/Influential Data Points
+We use the function influence.measures() to help identify points/observations that may need to be considered.
+```{r influence.measures, include = TRUE, echo = FALSE, results = "markup", cols.print = 10}
+summary(influence.measures(fit4))
+```
+
+```{r dfbetas_influence, include = FALSE, echo = FALSE, results = "hide"}
+fit4.dfb <- dfbetas(fit4, parameters = 0, sort = TRUE)   ## ordered based on magnitude
+influence.fit4.id <- which(fit4.dfb > (2/(length(mtcars$mpg)^.5))) ##  dfbetas > #2 / sqrt(n)
+rbind(influence.fit4.id, fit4.dfb[influence.fit4.id])   ## value relfects a car & fit4 variable combination
+```
+
+```{r hatvalues_leverage, include = FALSE, echo = FALSE, results = "hide"}
+fit4.hat <- hatvalues(fit4)
+leverage.fit4.id <- which(fit4.hat > (2*(4+1)/length(mtcars2$mpg))) ##  hatvalue > #2*(k+1)/n
+fit4.hat[leverage.fit4.id] 
+```
+
+## Statistical Inference
+To provide additional perspective on the strength of the model in predicting, a comparison of the actual MPG to the fitted mpg and associated 95% confidence interval to look at how well the model estimated results.  While there are a few instances (see Appendix: Figure 4) where the actual MPG falls outside the 95% confidence interval, a majority fit the model.
+
+
+## Conclusion
+The regression model, fit4, provides the best fit, explaining 84% of the changes in MPG. Outline of coefficients:  
+1. Intercept [33.71] - estimate of MPG for an average wt & hp car with 4 cyl car and automatic transmission  
+2. am1 - MPG increases 1.81 mpg for switching to a manual transmission, all else equal  
+3. wt - reduces MPG by 2.5 for a 1 unit (1,000 lbs) change in the weight of a car, all else equal  
+4. cyl6 - a switch from a 4 cyl to 6 cyl decreases MPG by 3.03, all else equal  
+5. cyl8 - a switch from a 4 cyl to 8 cyl decreases MPG by 2.16, all else equal (less than 6 cyl?)
+6. hp - a 1 unit change in hp reduces MPG by 0.03, all else equal
+
+### Regression Coefficients
+```{r regression_coefficients, include = TRUE, echo = FALSE, results = "markup"}
+round(coef4[,1], 2)
+```
+
+Although there may more that can be learned about interaction between cyl (cyl8) and hp, this model produces a fairly reliable approach to predicting the MPG of a car.  With a larger population and/or more detailed look at values within a variable, it may be possible to create a better model.  This creates the risk of overfitting to reduce residuals, but not necessarily improving the applicability of the model.
+
+
+## Appendix
+
+### Figure 1: Illustrate the relationship of each variable
+A panel plot of the relationship of each variable to another within the 'mtcars' data set.
+```{r panel_plot_exploratory, fig.keep = "high", fig.show = "asis", fig.height = 4, fig.path = 'figure/'}
+pairs(mtcars, panel = panel.smooth, main = "MT Cars Data", col = 3)
+```
+
+```{r corr_figure, include = FALSE, ehco = FALSE, fig.keep = "high", fig.show = "hide", fig.height = 5, fig.path = 'figure/'}
+corrplot(mtcars.cor, method = "number", type = "upper", add = FALSE, 
+                   order = "original", is.corr = TRUE)
+```
+
+
+### Figure 2: Regression Model Residuals
+```{r plot_residuals, include=TRUE, echo=FALSE, fig.keep="high", fig.show="asis", fig.height = 5, fig.path='figure/'}
+par(mfrow = c(2,2))
+plot(fit4, which = 1:4)
+```
+
+
+### Figure 3: Regression Model Observations outside Confidence Interval
+```{r regression_outliers, include = TRUE, echo = TRUE, results = "markup"}
+fit4.confint <- round(predict(fit4, mtcars2, interval = "confidence", level = 0.95), 2)
+actual <- mtcars2[,1]
+fit4.compare <- as.data.frame(cbind(actual, fit4.confint))
+fit4.compare$outlier <- ifelse(fit4.compare$actual < fit4.compare$lwr | fit4.compare$actual > fit4.compare$upr, "Y","N")
+fit4.outlier <- subset(fit4.compare, outlier == "Y")
+select(fit4.outlier, actual, fit, lwr, upr)
+```
+
+
+
+
+
