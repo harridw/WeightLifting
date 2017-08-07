@@ -17,7 +17,8 @@ packages <- c("plyr", "dplyr", "data.table", "dtplyr", "lubridate", "ggplot2", "
                   "reshape2", "knitr", "R.cache", "stringr", "gtools", "quantreg",
                   "graphics", "corrplot", "broom", "rmarkdown", "caret", "randomForest",
                   "gbm", "forecast", "elasticnet", "e1071", "glmnet", "quantmod", "rpart",
-                  "rpart.plot", "rattle", "knitr", "tidyverse", "purrr")
+                  "rpart.plot", "rattle", "knitr", "tidyverse", "purrr", "mda", "ROCR",
+                  "verification", "pROC")
 ipak(packages)
 ```
 
@@ -41,7 +42,7 @@ test.file = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
 
 training <- fread(train.file, sep = ",", header = TRUE, 
                   na.strings = c("NA", "N/A", "NULL", "Null", "null", " ", "  ", "#DIV/0!"))
-testing <- fread(test.file, sep = ",", header = TRUE, 
+validation <- fread(test.file, sep = ",", header = TRUE, 
                   na.strings = c("NA", "N/A", "NULL", "Null", "null", " ", "  "), "#DIV/0!") 
 ```
 
@@ -51,8 +52,8 @@ To allow for a validation of the models to occur before evaluating predictive ac
 ```{r testing_partition, include = TRUE, echo = TRUE, results = "markup"}
 inTrain = createDataPartition(training$classe, p = 0.7, list = FALSE)
 training = training[inTrain,]
-validation = training[-inTrain,]
-dim(training); dim(validation); dim(testing);
+testing = training[-inTrain,]
+dim(training); dim(testing); dim(validation);
 ```
 
 
@@ -64,6 +65,8 @@ pctNA <- data.frame(sapply(training, function(x) round(sum(is.na(x))/nrow(traini
 colnames(pctNA)[1] <- "pctNA"
 highNA <- subset(pctNA, pctNA >0.75)  ## variables / features with more than 75% NA
 head(highNA, n = 20)
+nzv <- nearZeroVar(training, freqCut = 80, uniqueCut = 0.1)
+
 ```
 excl.var <- c(rownames(highNA))
 sub.training <- train.trim <- training[,-c(excl.var):=NULL]  ## Excludes highNA variables
