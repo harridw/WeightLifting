@@ -48,24 +48,28 @@ testing <- fread(test.file, sep = ",", header = TRUE,
 
 **Create Vaidation Set**  
 To allow for a validation of the models to occur before evaluating predictive accuracy on test set, a validation set, is created.  The validation set will take a portion of the records from the current 'training' set.  The balance training observations will remain in the testing set.  Below is the code for partitioning the training set into 'training' and 'validation' sets.  
-```{r testing_partition, include = TRUE, echo = TRUE}
+```{r testing_partition, include = TRUE, echo = TRUE, results = "markup"}
 inTrain = createDataPartition(training$classe, p = 0.7, list = FALSE)
 training = training[inTrain,]
 validation = training[-inTrain,]
+dim(training); dim(validation); dim(testing);
 ```
-
-
-
 
 
 ## Exploratory Data Analysis  
-
+There is a total of 160 variables in the data sets.  A quick review of the data will allow us to understand 
 To obtain a high-level insight to the relationship of the different variables in the data set, we created a panel plot and correlation matrix (see Appendix: Figure 1 & Figure 2) to understand the relationships.  We find that the variables cyl, disp, hp, and wt have the strongest relationship with mpg.
-```{r dataset_overview, include = FALSE, echo = FALSE, results = "hide"}
+```{r dataset_overview, include = TRUE, echo = TRUE, results = "markup"}
+pctNA <- data.frame(sapply(training, function(x) round(sum(is.na(x))/nrow(training), 3)))
+colnames(pctNA)[1] <- "pctNA"
+highNA <- subset(pctNA, pctNA >0.75)  ## variables / features with more than 75% NA
+head(highNA, n = 20)
+```
+excl.var <- c(rownames(highNA))
+sub.training <- train.trim <- training[,-c(excl.var):=NULL]  ## Excludes highNA variables
 str(mtcars)
 head(mtcars)
 ```
-
 
 
 ### Exhibit 1: Correlation Factor of Each Variable with MPG
