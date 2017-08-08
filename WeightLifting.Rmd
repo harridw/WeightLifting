@@ -18,7 +18,7 @@ packages <- c("plyr", "dplyr", "data.table", "dtplyr", "lubridate", "ggplot2", "
                   "graphics", "corrplot", "broom", "rmarkdown", "caret", "randomForest",
                   "gbm", "forecast", "elasticnet", "e1071", "glmnet", "quantmod", "rpart",
                   "rpart.plot", "rattle", "knitr", "tidyverse", "purrr", "mda", "ROCR",
-                  "verification", "pROC")
+                  "verification", "pROC", "tree")
 ipak(packages)
 ```
 
@@ -58,20 +58,39 @@ dim(training); dim(testing); dim(validation);
 
 
 ## Exploratory Data Analysis  
-There is a total of 160 variables in the data sets.  A quick review of the data will allow us to understand 
-To obtain a high-level insight to the relationship of the different variables in the data set, we created a panel plot and correlation matrix (see Appendix: Figure 1 & Figure 2) to understand the relationships.  We find that the variables cyl, disp, hp, and wt have the strongest relationship with mpg.
-```{r dataset_overview, include = TRUE, echo = TRUE, results = "markup"}
-pctNA <- data.frame(sapply(training, function(x) round(sum(is.na(x))/nrow(training), 3)))
+There is a total of 160 variables in the data sets.  To avoid overfitting, we want to identify important or relevant variables, or features, that contribute significantly to greater predictive capability of a model.  This assessment is performed in several steps:  
+* Step 1: Remove features that have a significant portion of missing / NA values or few unique values (e.g. 1 or 2 different values).  
+* Step 2: Run preProcess() with method = "pca" to define principle components that capture at least 80% of variance.  
+* Step 3: Plot tree which provides insight to the importance of features considering the interaction between variables.  
+* Step 4: Make additional plots to provide further insight to the relationships of each feature, focusing on the principal components/features identified in previous analyses.  
+```{r explore_step1, include = TRUE, echo = TRUE, results = "markup"}
+pctNA <- data.frame(sapply(training, function(x) 
+            round(sum(is.na(x))/nrow(training),3)))
 colnames(pctNA)[1] <- "pctNA"
-highNA <- subset(pctNA, pctNA >0.75)  ## variables / features with more than 75% NA
-head(highNA, n = 20)
-nzv <- nearZeroVar(training, freqCut = 80, uniqueCut = 0.1)
-
+highNA <- subset(pctNA, pctNA > 0.80)   ## Features with > 80% NA
+highNA.feature <- data.frame(rownames(highNA))
+colnames(highNA.feature)[1] <- "feature"
+nzv <- nearZeroVar(training, freqCut = 80/20, uniqueCut = 0.1, saveMetrics = TRUE)
+nzv.disq <- subset(nzv, zeroVar == TRUE | nzv == TRUE)
+nzv.feature <- data.frame(rownames(nzv.disq))
+colnames(nzv.feature)[1] <- "feature"
+feature.low <- merge(highNA.feature, nzv.feature, by = c("feature"), all = TRUE)
+feature.low <- unique(feature.low)   ## anticipate features to be low priority for model
 ```
+
+preProc <- preProcess(training, method = "pca", thresh = 0.80, 
+                  na.remove = TRUE, outcome = factor(training$classe))
 excl.var <- c(rownames(highNA))
 sub.training <- train.trim <- training[,-c(excl.var):=NULL]  ## Excludes highNA variables
 str(mtcars)
 head(mtcars)
+```
+## Model Selection
+As our outcome variable 'classe' is qualitative, a linear model does not make sense. We will be using the models listed below to predict the outcome.  In addition to each model indvidually, we will develop a combined, or stacked, model to see if we can 
+
+```{r model_rpart, include = FALSE, echo = FALSE, results = "hide"}
+fitRPart <- train(classe ~ ., data = training, method = "rpart")
+
 ```
 
 
