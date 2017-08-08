@@ -40,10 +40,10 @@ In this project, your goal will be to use data from accelerometers on the belt, 
 train.file = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
 test.file = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 
-training <- fread(train.file, sep = ",", header = TRUE, 
-                  na.strings = c("NA", "N/A", "NULL", "Null", "null", " ", "  ", "#DIV/0!"))
-validation <- fread(test.file, sep = ",", header = TRUE, 
-                  na.strings = c("NA", "N/A", "NULL", "Null", "null", " ", "  "), "#DIV/0!") 
+training <- read.csv(train.file, header = TRUE, 
+                  na.strings = c("NA","N/A","NULL","Null","null",""," ","  ","#DIV/0!"))
+validation <- read.csv(test.file, header = TRUE, 
+                  na.strings = c("NA","N/A","NULL","Null","null",""," ","  ","#DIV/0!"))
 ```
 
 
@@ -75,10 +75,11 @@ nzv.disq <- subset(nzv, zeroVar == TRUE | nzv == TRUE)
 nzv.feature <- data.frame(rownames(nzv.disq))
 colnames(nzv.feature)[1] <- "feature"
 feature.low <- merge(highNA.feature, nzv.feature, by = c("feature"), all = TRUE)
-feature.low <- unique(feature.low)   ## anticipate features to be low priority for model
+feature.low <- unique(feature.low)   ## features with low importance for model -- exclude?
+core.feature <- subset(training, select = -feature.low)
 ```
 
-preProc <- preProcess(training, method = "pca", thresh = 0.80, 
+preProc <- preProcess(training, method = c("zv", "nzv", "corr"), thresh = 0.80, 
                   na.remove = TRUE, outcome = factor(training$classe))
 excl.var <- c(rownames(highNA))
 sub.training <- train.trim <- training[,-c(excl.var):=NULL]  ## Excludes highNA variables
@@ -89,7 +90,14 @@ head(mtcars)
 As our outcome variable 'classe' is qualitative, a linear model does not make sense. We will be using the models listed below to predict the outcome.  In addition to each model indvidually, we will develop a combined, or stacked, model to see if we can 
 
 ```{r model_rpart, include = FALSE, echo = FALSE, results = "hide"}
-fitRPart <- train(classe ~ ., data = training, method = "rpart")
+set.seed(100)
+preProc <- preProcess(training, method = c("zv", "nzv", "corr"), 
+                        na.remove = TRUE, use = "pairwise.complete.obs", 
+                        freqCut = 80/20, uniqueCut = 1, cutoff = 0.8) 
+fitCtrl <- trainControl(method = "cv", number = 5,repeats = 1,)
+fitRPart <- train(classe ~ ., data = training, method = "rpart", 
+                  tuneLength = 30, trControl = fitCtrl, metric = "ROC", 
+                  preProc = preProc)
 
 ```
 
