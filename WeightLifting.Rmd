@@ -47,7 +47,7 @@ validation <- read.csv(test.file, header = TRUE,
 ```
 
 
-**Create Vaidation Set**  
+**Partition Training Data Set**  
 To allow for a validation of the models to occur before evaluating predictive accuracy on test set, a validation set, is created.  The validation set will take a portion of the records from the current 'training' set.  The balance training observations will remain in the testing set.  Below is the code for partitioning the training set into 'training' and 'validation' sets.  
 ```{r testing_partition, include = TRUE, echo = TRUE, results = "markup"}
 inTrain = createDataPartition(training$classe, p = 0.7, list = FALSE)
@@ -81,23 +81,23 @@ As our outcome variable 'classe' is qualitative, a linear model does not make se
 
 ```{r model_rpart, include = FALSE, echo = FALSE, results = "hide"}
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 5,repeats = 1, classProbs = TRUE)
+fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1, classProbs = TRUE)
 fitRPart <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rpart", 
-                  tuneLength = 20, trControl = fitCtrl, metric = "ROC")
+                  tuneLength = 10, trControl = fitCtrl, metric = "Accuracy")
 predRPart <- predict(fitRPart, newdata = testing[ ,c("classe", keep)])
 confusionMatrix(predRPart, testing$classe)
 
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 5,repeats = 1, classProbs = TRUE)
-fitLDA <- train(classe ~ ., data = training[ , c("classe", keep)], method = "lda", 
-                  tuneLength = 20, trControl = fitCtrl, metric = "ROC")
-predLDA <- predict(fitLDA, newdata = testing[ ,c("classe", keep)])
-confusionMatrix(predLDA, testing$classe)
+fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1, classProbs = TRUE)
+fitGBM <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
+                  tuneLength = 10, trControl = fitCtrl, metric = "Accuracy")
+predGBM <- predict(fitGBM, newdata = testing[ ,c("classe", keep)])
+confusionMatrix(predGBM, testing$classe)
 
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 5,repeats = 1, classProbs = TRUE)
-fitRF <- train(classe ~ ., data = training[ , c("classe", keep)], method = "lda", 
-                  tuneLength = 20, trControl = fitCtrl, metric = "ROC")
+fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1, classProbs = TRUE)
+fitRF <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
+                  tuneLength = 10, trControl = fitCtrl, metric = "ROC")
 predRF <- predict(fitRF, newdata = testing[ ,c("classe", keep)])
 confusionMatrix(predRF, testing$classe)
 
