@@ -18,7 +18,7 @@ packages <- c("plyr", "dplyr", "data.table", "dtplyr", "lubridate", "ggplot2", "
                   "graphics", "corrplot", "broom", "rmarkdown", "caret", "randomForest",
                   "gbm", "forecast", "elasticnet", "e1071", "glmnet", "quantmod", "rpart",
                   "rpart.plot", "rattle", "knitr", "tidyverse", "purrr", "mda", "ROCR",
-                  "verification", "pROC", "tree")
+                  "verification", "pROC", "tree", "stringr")
 ipak(packages)
 ```
 
@@ -58,46 +58,48 @@ dim(training); dim(testing); dim(validation);
 
 
 ## Exploratory Data Analysis  
-There is a total of 160 variables in the data sets.  To avoid overfitting, we want to identify important or relevant variables, or features, that contribute significantly to greater predictive capability of a model.  This assessment is performed in several steps:  
+There is a total of 160 variables in the data sets.  To avoid overfitting, we want to identify important or relevant variables, or features, that contribute significantly to greater predictive capability of a model.   
 * Step 1: Remove features that have a significant portion of missing / NA values or few unique values (e.g. 1 or 2 different values).  
 * Step 2: Run preProcess() with method = "pca" to define principle components that capture at least 80% of variance.  
 * Step 3: Plot tree which provides insight to the importance of features considering the interaction between variables.  
 * Step 4: Make additional plots to provide further insight to the relationships of each feature, focusing on the principal components/features identified in previous analyses.  
 ```{r explore_step1, include = TRUE, echo = TRUE, results = "markup"}
-pctNA <- data.frame(sapply(training, function(x) 
-            round(sum(is.na(x))/nrow(training),3)))
-colnames(pctNA)[1] <- "pctNA"
-highNA <- subset(pctNA, pctNA > 0.80)   ## Features with > 80% NA
-highNA.feature <- data.frame(rownames(highNA))
-colnames(highNA.feature)[1] <- "feature"
+pctNA <- sapply(training, function(x) round(sum(is.na(x))/nrow(training),3))
+lowNA <- names(pctNA)[pctNA < 0.80]   ## Exclude column names with 80%+ NA
+keep <- lowNA[1:length(lowNA)-1]
+```
+```{r nzv_exclude, include = FALSE, echo = FALSE, results = "hide")}
+## Identify nearZeroVar which likely contribute nominally, if at all, to predictive model
 nzv <- nearZeroVar(training, freqCut = 80/20, uniqueCut = 0.1, saveMetrics = TRUE)
 nzv.disq <- subset(nzv, zeroVar == TRUE | nzv == TRUE)
-nzv.feature <- data.frame(rownames(nzv.disq))
-colnames(nzv.feature)[1] <- "feature"
-feature.low <- merge(highNA.feature, nzv.feature, by = c("feature"), all = TRUE)
-feature.low <- unique(feature.low)   ## features with low importance for model -- exclude?
-core.feature <- subset(training, select = -feature.low)
+nzv.disq <- rownames(nzv.disq)
 ```
 
-preProc <- preProcess(training, method = c("zv", "nzv", "corr"), thresh = 0.80, 
-                  na.remove = TRUE, outcome = factor(training$classe))
-excl.var <- c(rownames(highNA))
-sub.training <- train.trim <- training[,-c(excl.var):=NULL]  ## Excludes highNA variables
-str(mtcars)
-head(mtcars)
-```
+
 ## Model Selection
 As our outcome variable 'classe' is qualitative, a linear model does not make sense. We will be using the models listed below to predict the outcome.  In addition to each model indvidually, we will develop a combined, or stacked, model to see if we can 
 
 ```{r model_rpart, include = FALSE, echo = FALSE, results = "hide"}
 set.seed(100)
-preProc <- preProcess(training, method = c("zv", "nzv", "corr"), 
-                        na.remove = TRUE, use = "pairwise.complete.obs", 
-                        freqCut = 80/20, uniqueCut = 1, cutoff = 0.8) 
-fitCtrl <- trainControl(method = "cv", number = 5,repeats = 1,)
-fitRPart <- train(classe ~ ., data = training, method = "rpart", 
-                  tuneLength = 30, trControl = fitCtrl, metric = "ROC", 
-                  preProc = preProc)
+fitCtrl <- trainControl(method = "cv", number = 5,repeats = 1, classProbs = TRUE)
+fitRPart <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rpart", 
+                  tuneLength = 20, trControl = fitCtrl, metric = "ROC")
+predRPart <- predict(fitRPart, newdata = testing[ ,c("classe", keep)])
+confusionMatrix(predRPart, testing$classe)
+
+set.seed(100)
+fitCtrl <- trainControl(method = "cv", number = 5,repeats = 1, classProbs = TRUE)
+fitLDA <- train(classe ~ ., data = training[ , c("classe", keep)], method = "lda", 
+                  tuneLength = 20, trControl = fitCtrl, metric = "ROC")
+predLDA <- predict(fitLDA, newdata = testing[ ,c("classe", keep)])
+confusionMatrix(predLDA, testing$classe)
+
+set.seed(100)
+fitCtrl <- trainControl(method = "cv", number = 5,repeats = 1, classProbs = TRUE)
+fitRF <- train(classe ~ ., data = training[ , c("classe", keep)], method = "lda", 
+                  tuneLength = 20, trControl = fitCtrl, metric = "ROC")
+predRF <- predict(fitRF, newdata = testing[ ,c("classe", keep)])
+confusionMatrix(predRF, testing$classe)
 
 ```
 
