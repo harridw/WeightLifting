@@ -50,6 +50,7 @@ validation <- read.csv(test.file, header = TRUE,
 **Partition Training Data Set**  
 To allow for a validation of the models to occur before evaluating predictive accuracy on test set, a validation set, is created.  The validation set will take a portion of the records from the current 'training' set.  The balance training observations will remain in the testing set.  Below is the code for partitioning the training set into 'training' and 'validation' sets.  
 ```{r testing_partition, include = TRUE, echo = TRUE, results = "markup"}
+set.seed(100)
 inTrain = createDataPartition(training$classe, p = 0.7, list = FALSE)
 training = training[inTrain,]
 testing = training[-inTrain,]
@@ -58,7 +59,7 @@ dim(training); dim(testing); dim(validation);
 
 
 ## Exploratory Data Analysis  
-There is a total of 160 variables in the data sets.  To avoid overfitting, we want to identify important or relevant variables, or features, that contribute significantly to greater predictive capability of a model.   
+There is a total of 160 variables in the data sets.  To avoid overfitting, we want to identify important or relevant variables, or features, that contribute significantly to greater predictive capability of a model.   A first step is to identify and remove features with a percentage of observations values equal NA or blank is 80% or higher.  The assumption is that the high percentage of NA or blank values raises some concern about the quality of information obtained.  More research is required before further considering these variables for inclusion in the model. This may include better populating values across all observations.
 * Step 1: Remove features that have a significant portion of missing / NA values or few unique values (e.g. 1 or 2 different values).  
 * Step 2: Run preProcess() with method = "pca" to define principle components that capture at least 80% of variance.  
 * Step 3: Plot tree which provides insight to the importance of features considering the interaction between variables.  
@@ -81,26 +82,41 @@ As our outcome variable 'classe' is qualitative, a linear model does not make se
 
 ```{r model_rpart, include = FALSE, echo = FALSE, results = "hide"}
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1, classProbs = TRUE)
+fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1)
 fitRPart <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rpart", 
                   tuneLength = 10, trControl = fitCtrl, metric = "Accuracy")
 predRPart <- predict(fitRPart, newdata = testing[ ,c("classe", keep)])
-confusionMatrix(predRPart, testing$classe)
+confuseRPart <- confusionMatrix(predRPart, testing$classe)
 
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1, classProbs = TRUE)
-fitGBM <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
+fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1)
+fitGBM1 <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
                   tuneLength = 10, trControl = fitCtrl, metric = "Accuracy")
-predGBM <- predict(fitGBM, newdata = testing[ ,c("classe", keep)])
-confusionMatrix(predGBM, testing$classe)
+predGBM1 <- predict(fitGBM1, newdata = testing[ ,c("classe", keep)])
+confuseGBM1 <- confusionMatrix(predGBM1, testing$classe)
 
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1, classProbs = TRUE)
-fitRF <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
+fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1, 
+                        classProbs = TRUE, summaryFunction = twoClassSuumary)
+fitGBM2 <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
                   tuneLength = 10, trControl = fitCtrl, metric = "ROC")
-predRF <- predict(fitRF, newdata = testing[ ,c("classe", keep)])
-confusionMatrix(predRF, testing$classe)
+predGBM2 <- predict(fitGBM2, newdata = testing[ ,c("classe", keep)])
+confuseGBM2 <- confusionMatrix(predGBM2, testing$classe)
 
+set.seed(100)
+fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1)
+fitRF1 <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
+                  tuneLength = 10, trControl = fitCtrl, metric = "Accuracy")
+predRF1 <- predict(fitRF1, newdata = testing[ ,c("classe", keep)])
+confuseRF1 <- confusionMatrix(predRF1, testing$classe)
+
+set.seed(100)
+fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1, 
+                        classProbs = TRUE, summaryFunction = twoClassSuumary)
+fitRF2 <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
+                  tuneLength = 10, trControl = fitCtrl, metric = "ROC")
+predRF2 <- predict(fitRF2, newdata = testing[ ,c("classe", keep)])
+confuseRF2 <- confusionMatrix(predRF2, testing$classe)
 ```
 
 
