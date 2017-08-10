@@ -129,7 +129,7 @@ confuseRF2 <- confusionMatrix(predRF2, valid1$classe)
 
 
 ### Exhibit 1: Correlation Factor of Each Variable with MPG
-```{r corr_matrix_grid, include = TRUE, echo = TRUE, results = "markup"}
+```{r corr_matrix_grid, include = FALSE, echo = FALSE, eval = FALSE}
 mtcars.cor <- round(cor(mtcars), 3)
 mtcars.cor[1,]
 ```
