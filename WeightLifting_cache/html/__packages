@@ -1,10 +1,4 @@
 base
-methods
-datasets
-utils
-grDevices
-graphics
-stats
 plyr
 dplyr
 data.table
@@ -26,8 +20,6 @@ lattice
 caret
 randomForest
 survival
-splines
-parallel
 gbm
 forecast
 lars
@@ -51,7 +43,6 @@ class
 mda
 gplots
 ROCR
-grid
 spam
 maps
 fields

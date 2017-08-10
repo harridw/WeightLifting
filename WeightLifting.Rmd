@@ -98,33 +98,18 @@ confuseRPart <- confusionMatrix(predRPart, valid1$classe)
 
 set.seed(100)
 fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1)
-fitGBM1 <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
+fitGBM <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
                   tuneLength = 10, trControl = fitCtrl, metric = "Accuracy")
-predGBM1 <- predict(fitGBM1, newdata = valid1[ ,c("classe", keep)])
-confuseGBM1 <- confusionMatrix(predGBM1, valid1$classe)
-
-set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1, 
-                        classProbs = TRUE, summaryFunction = twoClassSummary)
-fitGBM2 <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
-                  tuneLength = 10, trControl = fitCtrl, metric = "ROC")
-predGBM2 <- predict(fitGBM2, newdata = valid1[ ,c("classe", keep)])
-confuseGBM2 <- confusionMatrix(predGBM2, valid1$classe)
+predGBM <- predict(fitGBM, newdata = valid1[ ,c("classe", keep)])
+confuseGBM <- confusionMatrix(predGBM, valid1$classe)
 
 set.seed(100)
 fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1)
-fitRF1 <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
+fitRF <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
                   tuneLength = 10, trControl = fitCtrl, metric = "Accuracy")
-predRF1 <- predict(fitRF1, newdata = valid1[ ,c("classe", keep)])
-confuseRF1 <- confusionMatrix(predRF1, valid1$classe)
+predRF <- predict(fitRF, newdata = valid1[ ,c("classe", keep)])
+confuseRF <- confusionMatrix(predRF, valid1$classe)
 
-set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1, 
-                        classProbs = TRUE, summaryFunction = twoClassSummary)
-fitRF2 <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
-                  tuneLength = 10, trControl = fitCtrl, metric = "ROC")
-predRF2 <- predict(fitRF2, newdata = valid1[ ,c("classe", keep)])
-confuseRF2 <- confusionMatrix(predRF2, valid1$classe)
 ```
 
 
