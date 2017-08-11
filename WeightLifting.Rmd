@@ -63,11 +63,25 @@ dim(validation)
 
 ## Exploratory Data Analysis  
 There is a total of 160 variables in the data sets.  To avoid overfitting, we want to identify important or relevant variables, or features, that may contribute significantly to greater predictive capability of a model.   A first step is to identify and remove features with a percentage of observations values equal NA or blank is 80% or higher.  The assumption is that the high percentage of NA or blank values raises some concern about the quality or completeness of information obtained.  More research is required before further considering these variables for inclusion in the model. This may include better populating values across all observations.  
- 
-```{r explore_step1, include = TRUE, echo = TRUE, results = "markup"}
+**Remove Variables with High Percentage 'NA'**   
+```{r remove_NA, include = TRUE, echo = TRUE, results = "markup"}
 pctNA <- sapply(training, function(x) round(sum(is.na(x))/nrow(training),3))
 lowNA <- names(pctNA)[pctNA < 0.80]   ## Exclude column names with 80%+ NA
-keep <- lowNA[1:length(lowNA)-1]
+```
+
+**Remove Unnecessary Variables**  
+The analysis focuses on the data produced by the various accelerometers, not the individuals and/or time related to the data.  To avoid these items influencing our model, they are excluded here.
+```{r remove_unrelated, include = TRUE, echo = TRUE, results = "markup"}
+lowNA.remove <- lowNA[1:7]
+lowNA.remove
+```
+
+```{r keep_variables_one, include = TRUE, echo = FALSE, results = "hide"}
+keep <- lowNA[9:length(lowNA)-1]   ## Exclude row index and 'classe' variable
+```
+
+Variables evaluated to fit model:
+```{r keep_variables_two, include = TRUE, echo = FALSE, results = "markup"}
 keep
 ```
 ```{r nzv_exclude, include = FALSE, echo = FALSE, eval = FALSE}
@@ -75,9 +89,6 @@ keep
 nzv <- nearZeroVar(training, freqCut = 80/20, uniqueCut = 0.1, saveMetrics = TRUE)
 nzv.disq <- subset(nzv, zeroVar == TRUE | nzv == TRUE)
 nzv.disq <- rownames(nzv.disq)
-
-
-cor(training[ , c("classe", keep)])
 ```
 
 
@@ -86,7 +97,10 @@ As our outcome variable 'classe' is qualitative, a linear model does not make se
 
 ```{r model_develop, include = TRUE, echo = TRUE, results = "hide", cache = TRUE}
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 5)
+fitCtrl <- trainControl(method = "cv", number = 5, search = "random", 
+                        returnResamp = "all", savePredictions = "all",
+                        classProbs = TRUE, selectionFunction = "best",
+                        preProcOptions = "scale", trim = TRUE)
 fitRPart <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rpart", 
                   tuneLength = sqrt(ncol(training[,c("classe", keep)])), 
                   trControl = fitCtrl, metric = "Accuracy")
@@ -94,10 +108,13 @@ predRPart <- predict(fitRPart, newdata = validation[ ,c("classe", keep)])
 confuseRPart <- confusionMatrix(predRPart, validation$classe)
 
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 5)
+fitCtrl <- trainControl(method = "cv", number = 5, search = "random",
+                        returnResamp = "all", savePredictions = "all",
+                        classProbs = TRUE, selectionFunction = "best",
+                        preProcOptions = "scale", trim = TRUE)
 gbmGrid <- expand.grid(.interaction.depth = 1,
-                   .n.trees = seq(100,500,by=50),
-                   .shrinkage = 0.1, .n.minobsinnode=1)
+                   .n.trees = seq(5,25,by=5),
+                   .shrinkage = 0.1, .n.minobsinnode=2)
 fitGBM <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
                   tuneGrid = gbmGrid, trControl = fitCtrl,
                   metric = "Kappa", verbose = FALSE)
@@ -105,7 +122,10 @@ predGBM <- predict(fitGBM, newdata = validation[ ,c("classe", keep)])
 confuseGBM <- confusionMatrix(predGBM, validation$classe)
 
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 5)
+fitCtrl <- trainControl(method = "oob", number = 5, search = "random",
+                        returnResamp = "all", savePredictions = "all",
+                        classProbs = TRUE, selectionFunction = "best",
+                        preProcOptions = "scale", trim = TRUE)
 mtry <- c(1:round(sqrt(ncol(training[,c("classe",keep)]))))
 rfGrid <- data.frame(.mtry = mtry)
 fitRF <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
@@ -117,7 +137,7 @@ confuseRF <- confusionMatrix(predRF, validation$classe)
 
 
 ## Model Performance  
-We use Accuracy as our measure of the performance or quality of a prediction.  Essentially, we calculate the number of correct predictions to the total number of predictions.  Measuring the 'Accuracy' on the training set is not appropriate.  We apply the model to the validation set (see results below) to calculate the 'Accuracy' of the model.
+We use Accuracy as our measure of the performance or quality of a prediction.  Essentially, we calculate the number of correct predictions to the total number of predictions.  Measuring the 'Accuracy' on the training set is not appropriate.  We apply the model to the validation set (see results below) to evaluate the 'Accuracy' of the model.
 ```{r model_accuracy, include = TRUE, echo = TRUE, results = "markup"}
 model.accuracy <- data.frame(
       Method = c("Rpart", "Boosting", "randomForest"),
@@ -128,21 +148,15 @@ model.accuracy
 ```
 
 
-### Closer Look at Models
+### Closer Look at Model Results
 
+```{r model_details, include = TRUE, echo = TRUE, results = "markup"}
 fitRPart$results[1:3]
 fitGBM$results[4:6]
 fitRF$results[1:3]
-
-### Exhibit 1: Correlation Factor of Each Variable with MPG
-```{r corr_matrix_grid, include = FALSE, echo = FALSE, eval = FALSE}
-mtcars.cor <- round(cor(mtcars), 3)
-mtcars.cor[1,]
 ```
 
 
-## Regression Analysis
-Here we look build and compare various regression models to identify a model that best fits data.  We use several metrics to evaluate our model fit, including: adjusted r-square, residual squared error (sigma), and p-values.  We also use ANOVA and an analysis of the residuals to evaluate the model. Regression 'fit4' determined to provide best fit.
 
 
 
