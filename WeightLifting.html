@@ -137,47 +137,137 @@ test.file = &quot;https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testin
 training &lt;- read.csv(train.file, header = TRUE, 
                   na.strings = c(&quot;NA&quot;,&quot;N/A&quot;,&quot;NULL&quot;,&quot;Null&quot;,&quot;null&quot;,&quot;&quot;,&quot; &quot;,&quot;  &quot;,&quot;#DIV/0!&quot;))
 testing &lt;- read.csv(test.file, header = TRUE, 
-                  na.strings = c(&quot;NA&quot;,&quot;N/A&quot;,&quot;NULL&quot;,&quot;Null&quot;,&quot;null&quot;,&quot;&quot;,&quot; &quot;,&quot;  &quot;,&quot;#DIV/0!&quot;))</code></pre>
+                  na.strings = c(&quot;NA&quot;,&quot;N/A&quot;,&quot;NULL&quot;,&quot;Null&quot;,&quot;null&quot;,&quot;&quot;,&quot; &quot;,&quot;  &quot;,&quot;#DIV/0!&quot;))
+dim(training)
+dim(testing)</code></pre>
+<pre><code>## [1] 19622   160
+## [1]  20 160</code></pre>
 <p><strong>Partition Training Data Set</strong><br />
-To allow for a validation of the models to occur before evaluating predictive accuracy on test set, a validation set, is created. The validation set will take a portion of the records from the current ‘training’ set. The balance of the observations will remain in a training set. To allow for 2 possible ‘cross validation’ attempts, the validation set is further split into two data sets, valid1 and valid2.</p>
+To allow for a validation of the models to occur before evaluating predictive accuracy on test set, a validation set, is created. Due to the limited size of the testing set, 20 observations, this validation set will afford another opportunity to evaluate the prediction model. As defined in code below, the original training set is split 70% training/30% validation.</p>
 <pre class="r"><code>set.seed(100)
-inTrain = createDataPartition(training$classe, p = 0.6, list = FALSE)
+inTrain = createDataPartition(training$classe, p = 0.7, list = FALSE)
 training = training[inTrain,]
 validation = training[-inTrain,]
-
-set.seed(100)
-inValidation &lt;- createDataPartition(validation$classe, p = 0.5, list = FALSE)
-valid1 &lt;- validation[inValidation,]
-valid2 &lt;- validation[-inValidation,]
 dim(training) </code></pre>
-<pre><code>## [1] 11776   160</code></pre>
-<pre class="r"><code>dim(testing) </code></pre>
-<pre><code>## [1]  20 160</code></pre>
-<pre class="r"><code>dim(valid1) </code></pre>
-<pre><code>## [1] 2353  160</code></pre>
-<pre class="r"><code>dim(valid2)</code></pre>
-<pre><code>## [1] 2351  160</code></pre>
+<pre><code>## [1] 13737   160</code></pre>
+<pre class="r"><code>dim(validation) </code></pre>
+<pre><code>## [1] 4124  160</code></pre>
 </div>
 <div id="exploratory-data-analysis" class="section level2">
 <h2>Exploratory Data Analysis</h2>
-<p>There is a total of 160 variables in the data sets. To avoid overfitting, we want to identify important or relevant variables, or features, that contribute significantly to greater predictive capability of a model. A first step is to identify and remove features with a percentage of observations values equal NA or blank is 80% or higher. The assumption is that the high percentage of NA or blank values raises some concern about the quality of information obtained. More research is required before further considering these variables for inclusion in the model. This may include better populating values across all observations. * Step 1: Remove features that have a significant portion of missing / NA values or few unique values (e.g. 1 or 2 different values).<br />
-* Step 2: Run preProcess() with method = “pca” to define principle components that capture at least 80% of variance.<br />
-* Step 3: Plot tree which provides insight to the importance of features considering the interaction between variables.<br />
-* Step 4: Make additional plots to provide further insight to the relationships of each feature, focusing on the principal components/features identified in previous analyses.</p>
+<p>There is a total of 160 variables in the data sets. To avoid overfitting, we want to identify important or relevant variables, or features, that may contribute significantly to greater predictive capability of a model. A first step is to identify and remove features with a percentage of observations values equal NA or blank is 80% or higher. The assumption is that the high percentage of NA or blank values raises some concern about the quality or completeness of information obtained. More research is required before further considering these variables for inclusion in the model. This may include better populating values across all observations.<br />
+<strong>Remove Variables with High Percentage ‘NA’</strong></p>
 <pre class="r"><code>pctNA &lt;- sapply(training, function(x) round(sum(is.na(x))/nrow(training),3))
-lowNA &lt;- names(pctNA)[pctNA &lt; 0.80]   ## Exclude column names with 80%+ NA
-keep &lt;- lowNA[1:length(lowNA)-1]</code></pre>
+lowNA &lt;- names(pctNA)[pctNA &lt; 0.80]   ## Exclude column names with 80%+ NA</code></pre>
+<p><strong>Remove Unnecessary Variables</strong><br />
+The analysis focuses on the data produced by the various accelerometers, not the individuals and/or time related to the data. To avoid these items influencing our model, they are excluded here.</p>
+<pre class="r"><code>lowNA.remove &lt;- lowNA[1:7]
+lowNA.remove</code></pre>
+<pre><code>## [1] &quot;X&quot;                    &quot;user_name&quot;            &quot;raw_timestamp_part_1&quot;
+## [4] &quot;raw_timestamp_part_2&quot; &quot;cvtd_timestamp&quot;       &quot;new_window&quot;          
+## [7] &quot;num_window&quot;</code></pre>
+<p>Variables evaluated to fit model:</p>
+<pre><code>##  [1] &quot;roll_belt&quot;            &quot;pitch_belt&quot;           &quot;yaw_belt&quot;            
+##  [4] &quot;total_accel_belt&quot;     &quot;gyros_belt_x&quot;         &quot;gyros_belt_y&quot;        
+##  [7] &quot;gyros_belt_z&quot;         &quot;accel_belt_x&quot;         &quot;accel_belt_y&quot;        
+## [10] &quot;accel_belt_z&quot;         &quot;magnet_belt_x&quot;        &quot;magnet_belt_y&quot;       
+## [13] &quot;magnet_belt_z&quot;        &quot;roll_arm&quot;             &quot;pitch_arm&quot;           
+## [16] &quot;yaw_arm&quot;              &quot;total_accel_arm&quot;      &quot;gyros_arm_x&quot;         
+## [19] &quot;gyros_arm_y&quot;          &quot;gyros_arm_z&quot;          &quot;accel_arm_x&quot;         
+## [22] &quot;accel_arm_y&quot;          &quot;accel_arm_z&quot;          &quot;magnet_arm_x&quot;        
+## [25] &quot;magnet_arm_y&quot;         &quot;magnet_arm_z&quot;         &quot;roll_dumbbell&quot;       
+## [28] &quot;pitch_dumbbell&quot;       &quot;yaw_dumbbell&quot;         &quot;total_accel_dumbbell&quot;
+## [31] &quot;gyros_dumbbell_x&quot;     &quot;gyros_dumbbell_y&quot;     &quot;gyros_dumbbell_z&quot;    
+## [34] &quot;accel_dumbbell_x&quot;     &quot;accel_dumbbell_y&quot;     &quot;accel_dumbbell_z&quot;    
+## [37] &quot;magnet_dumbbell_x&quot;    &quot;magnet_dumbbell_y&quot;    &quot;magnet_dumbbell_z&quot;   
+## [40] &quot;roll_forearm&quot;         &quot;pitch_forearm&quot;        &quot;yaw_forearm&quot;         
+## [43] &quot;total_accel_forearm&quot;  &quot;gyros_forearm_x&quot;      &quot;gyros_forearm_y&quot;     
+## [46] &quot;gyros_forearm_z&quot;      &quot;accel_forearm_x&quot;      &quot;accel_forearm_y&quot;     
+## [49] &quot;accel_forearm_z&quot;      &quot;magnet_forearm_x&quot;     &quot;magnet_forearm_y&quot;    
+## [52] &quot;magnet_forearm_z&quot;</code></pre>
 </div>
 <div id="model-selection" class="section level2">
 <h2>Model Selection</h2>
 <p>As our outcome variable ‘classe’ is qualitative, a linear model does not make sense. We will be using the models listed below to predict the outcome. In addition to each model indvidually, we will develop a combined, or stacked, model, to see if we can create a materially better model. If the accuracy of selected model</p>
-<div id="exhibit-1-correlation-factor-of-each-variable-with-mpg" class="section level3">
-<h3>Exhibit 1: Correlation Factor of Each Variable with MPG</h3>
+<pre class="r"><code>set.seed(100)
+fitCtrl &lt;- trainControl(method = &quot;cv&quot;, number = 5, search = &quot;random&quot;, 
+                        returnResamp = &quot;all&quot;, savePredictions = &quot;all&quot;,
+                        classProbs = TRUE, selectionFunction = &quot;best&quot;,
+                        preProcOptions = &quot;scale&quot;, trim = TRUE)
+fitRPart &lt;- train(classe ~ ., data = training[ , c(&quot;classe&quot;, keep)], method = &quot;rpart&quot;, 
+                  tuneLength = sqrt(ncol(training[,c(&quot;classe&quot;, keep)])), 
+                  trControl = fitCtrl, metric = &quot;Accuracy&quot;)
+predRPart &lt;- predict(fitRPart, newdata = validation[ ,c(&quot;classe&quot;, keep)])
+confuseRPart &lt;- confusionMatrix(predRPart, validation$classe)
+
+set.seed(100)
+fitCtrl &lt;- trainControl(method = &quot;cv&quot;, number = 5, search = &quot;random&quot;,
+                        returnResamp = &quot;all&quot;, savePredictions = &quot;all&quot;,
+                        classProbs = TRUE, selectionFunction = &quot;best&quot;,
+                        preProcOptions = &quot;scale&quot;, trim = TRUE)
+gbmGrid &lt;- expand.grid(.interaction.depth = 1,
+                   .n.trees = seq(5,25,by=5),
+                   .shrinkage = 0.1, .n.minobsinnode=2)
+fitGBM &lt;- train(classe ~ ., data = training[ , c(&quot;classe&quot;, keep)], method = &quot;gbm&quot;, 
+                  tuneGrid = gbmGrid, trControl = fitCtrl,
+                  metric = &quot;Kappa&quot;, verbose = FALSE)
+predGBM &lt;- predict(fitGBM, newdata = validation[ ,c(&quot;classe&quot;, keep)])
+confuseGBM &lt;- confusionMatrix(predGBM, validation$classe)
+
+set.seed(100)
+fitCtrl &lt;- trainControl(method = &quot;oob&quot;, number = 5, search = &quot;random&quot;,
+                        returnResamp = &quot;all&quot;, savePredictions = &quot;all&quot;,
+                        classProbs = TRUE, selectionFunction = &quot;best&quot;,
+                        preProcOptions = &quot;scale&quot;, trim = TRUE)
+mtry &lt;- c(1:round(sqrt(ncol(training[,c(&quot;classe&quot;,keep)]))))
+rfGrid &lt;- data.frame(.mtry = mtry)
+fitRF &lt;- train(classe ~ ., data = training[ , c(&quot;classe&quot;, keep)], method = &quot;rf&quot;, 
+                  tuneGrid = rfGrid, trControl = fitCtrl, 
+                  metric = &quot;Accuracy&quot;, importance = TRUE)
+predRF &lt;- predict(fitRF, newdata = validation[ ,c(&quot;classe&quot;, keep)])
+confuseRF &lt;- confusionMatrix(predRF, validation$classe)</code></pre>
 </div>
+<div id="model-performance" class="section level2">
+<h2>Model Performance</h2>
+<p>We use Accuracy as our measure of the performance or quality of a prediction. Essentially, we calculate the number of correct predictions to the total number of predictions. Measuring the ‘Accuracy’ on the training set is not appropriate. We apply the model to the validation set (see results below) to evaluate the ‘Accuracy’ of the model.</p>
+<pre class="r"><code>model.accuracy &lt;- data.frame(
+      Method = c(&quot;Rpart&quot;, &quot;Boosting&quot;, &quot;randomForest&quot;),
+      Accuracy = rbind(round(confuseRPart$overall[1],4), 
+                        round(confuseGBM$overall[1],4), 
+                        round(confuseRF$overall[1],4)))
+model.accuracy</code></pre>
+<pre><code>##         Method Accuracy
+## 1        Rpart   0.9602
+## 2     Boosting   0.6777
+## 3 randomForest   1.0000</code></pre>
+<div id="closer-look-at-model-results" class="section level3">
+<h3>Closer Look at Model Results</h3>
+<pre class="r"><code>fitRPart$results[1:3]</code></pre>
+<pre><code>##             cp  Accuracy     Kappa
+## 1 0.0002034381 0.9227620 0.9023145
+## 2 0.0013223477 0.8876013 0.8577552
+## 3 0.0061031431 0.7938389 0.7389344
+## 4 0.0072220527 0.7786253 0.7194208
+## 5 0.0091547147 0.7519835 0.6852478
+## 6 0.0115959719 0.7203147 0.6450164
+## 7 0.0350930729 0.5084780 0.3585020</code></pre>
+<pre class="r"><code>fitGBM$results[4:6]</code></pre>
+<pre><code>##   n.trees  Accuracy     Kappa
+## 1       5 0.5346138 0.4127983
+## 2      10 0.5956158 0.4797962
+## 3      15 0.6506482 0.5530842
+## 4      20 0.6662293 0.5741073
+## 5      25 0.6861752 0.6003010</code></pre>
+<pre class="r"><code>fitRF$results[1:3]</code></pre>
+<pre><code>##    Accuracy     Kappa mtry
+## 1 0.9880614 0.9848954    1
+## 2 0.9926476 0.9906993    2
+## 3 0.9933028 0.9915282    3
+## 4 0.9939579 0.9923569    4
+## 5 0.9939579 0.9923571    5
+## 6 0.9943219 0.9928175    6
+## 7 0.9947587 0.9933700    7</code></pre>
 </div>
-<div id="regression-analysis" class="section level2">
-<h2>Regression Analysis</h2>
-<p>Here we look build and compare various regression models to identify a model that best fits data. We use several metrics to evaluate our model fit, including: adjusted r-square, residual squared error (sigma), and p-values. We also use ANOVA and an analysis of the residuals to evaluate the model. Regression ‘fit4’ determined to provide best fit.</p>
 </div>
 
 
