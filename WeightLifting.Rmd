@@ -44,74 +44,95 @@ training <- read.csv(train.file, header = TRUE,
                   na.strings = c("NA","N/A","NULL","Null","null",""," ","  ","#DIV/0!"))
 testing <- read.csv(test.file, header = TRUE, 
                   na.strings = c("NA","N/A","NULL","Null","null",""," ","  ","#DIV/0!"))
+dim(training)
+dim(testing)
 ```
 
 
 **Partition Training Data Set**  
-To allow for a validation of the models to occur before evaluating predictive accuracy on test set, a validation set, is created.  The validation set will take a portion of the records from the current 'training' set.  The balance of the observations will remain in a training set.  To allow for 2 possible 'cross validation' attempts, the validation set is further split into two data sets, valid1 and valid2. 
+To allow for a validation of the models to occur before evaluating predictive accuracy on test set, a validation set, is created.  Due to the limited size of the testing set, 20 observations, this validation set will afford another opportunity to evaluate the prediction model.  As defined in code below, the original training set is split 70% training/30% validation. 
 ```{r testing_partition, include = TRUE, echo = TRUE, results = "markup", cache = TRUE}
 set.seed(100)
-inTrain = createDataPartition(training$classe, p = 0.6, list = FALSE)
+inTrain = createDataPartition(training$classe, p = 0.7, list = FALSE)
 training = training[inTrain,]
 validation = training[-inTrain,]
-
-set.seed(100)
-inValidation <- createDataPartition(validation$classe, p = 0.5, list = FALSE)
-valid1 <- validation[inValidation,]
-valid2 <- validation[-inValidation,]
 dim(training) 
-dim(testing) 
-dim(valid1) 
-dim(valid2)
+dim(validation) 
 ```
 
 
 ## Exploratory Data Analysis  
-There is a total of 160 variables in the data sets.  To avoid overfitting, we want to identify important or relevant variables, or features, that contribute significantly to greater predictive capability of a model.   A first step is to identify and remove features with a percentage of observations values equal NA or blank is 80% or higher.  The assumption is that the high percentage of NA or blank values raises some concern about the quality of information obtained.  More research is required before further considering these variables for inclusion in the model. This may include better populating values across all observations.
-* Step 1: Remove features that have a significant portion of missing / NA values or few unique values (e.g. 1 or 2 different values).  
-* Step 2: Run preProcess() with method = "pca" to define principle components that capture at least 80% of variance.  
-* Step 3: Plot tree which provides insight to the importance of features considering the interaction between variables.  
-* Step 4: Make additional plots to provide further insight to the relationships of each feature, focusing on the principal components/features identified in previous analyses.  
+There is a total of 160 variables in the data sets.  To avoid overfitting, we want to identify important or relevant variables, or features, that may contribute significantly to greater predictive capability of a model.   A first step is to identify and remove features with a percentage of observations values equal NA or blank is 80% or higher.  The assumption is that the high percentage of NA or blank values raises some concern about the quality or completeness of information obtained.  More research is required before further considering these variables for inclusion in the model. This may include better populating values across all observations.  
+ 
 ```{r explore_step1, include = TRUE, echo = TRUE, results = "markup"}
 pctNA <- sapply(training, function(x) round(sum(is.na(x))/nrow(training),3))
 lowNA <- names(pctNA)[pctNA < 0.80]   ## Exclude column names with 80%+ NA
 keep <- lowNA[1:length(lowNA)-1]
+keep
 ```
 ```{r nzv_exclude, include = FALSE, echo = FALSE, eval = FALSE}
 ## Identify nearZeroVar which likely contribute nominally, if at all, to predictive model
 nzv <- nearZeroVar(training, freqCut = 80/20, uniqueCut = 0.1, saveMetrics = TRUE)
 nzv.disq <- subset(nzv, zeroVar == TRUE | nzv == TRUE)
 nzv.disq <- rownames(nzv.disq)
+
+
+cor(training[ , c("classe", keep)])
 ```
 
 
 ## Model Selection
 As our outcome variable 'classe' is qualitative, a linear model does not make sense. We will be using the models listed below to predict the outcome.  In addition to each model indvidually, we will develop a combined, or stacked, model, to see if we can create a materially better model.  If the accuracy of selected model
 
-```{r model_develop, include = TRUE, echo = FALSE, results = "hide", cache = TRUE}
+```{r model_develop, include = TRUE, echo = TRUE, results = "hide", cache = TRUE}
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1)
+fitCtrl <- trainControl(method = "cv", number = 5)
 fitRPart <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rpart", 
-                  tuneLength = 10, trControl = fitCtrl, metric = "Accuracy")
-predRPart <- predict(fitRPart, newdata = valid1[ ,c("classe", keep)])
-confuseRPart <- confusionMatrix(predRPart, valid1$classe)
+                  tuneLength = sqrt(ncol(training[,c("classe", keep)])), 
+                  trControl = fitCtrl, metric = "Accuracy")
+predRPart <- predict(fitRPart, newdata = validation[ ,c("classe", keep)])
+confuseRPart <- confusionMatrix(predRPart, validation$classe)
 
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1)
+fitCtrl <- trainControl(method = "cv", number = 5)
+gbmGrid <- expand.grid(.interaction.depth = 1,
+                   .n.trees = seq(100,500,by=50),
+                   .shrinkage = 0.1, .n.minobsinnode=1)
 fitGBM <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
-                  tuneLength = 10, trControl = fitCtrl, metric = "Accuracy")
-predGBM <- predict(fitGBM, newdata = valid1[ ,c("classe", keep)])
-confuseGBM <- confusionMatrix(predGBM, valid1$classe)
+                  tuneGrid = gbmGrid, trControl = fitCtrl,
+                  metric = "Kappa", verbose = FALSE)
+predGBM <- predict(fitGBM, newdata = validation[ ,c("classe", keep)])
+confuseGBM <- confusionMatrix(predGBM, validation$classe)
 
 set.seed(100)
-fitCtrl <- trainControl(method = "cv", number = 3,repeats = 1)
+fitCtrl <- trainControl(method = "cv", number = 5)
+mtry <- c(1:round(sqrt(ncol(training[,c("classe",keep)]))))
+rfGrid <- data.frame(.mtry = mtry)
 fitRF <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
-                  tuneLength = 10, trControl = fitCtrl, metric = "Accuracy")
-predRF <- predict(fitRF, newdata = valid1[ ,c("classe", keep)])
-confuseRF <- confusionMatrix(predRF, valid1$classe)
-
+                  tuneGrid = rfGrid, trControl = fitCtrl, 
+                  metric = "Accuracy", importance = TRUE)
+predRF <- predict(fitRF, newdata = validation[ ,c("classe", keep)])
+confuseRF <- confusionMatrix(predRF, validation$classe)
 ```
 
+
+## Model Performance  
+We use Accuracy as our measure of the performance or quality of a prediction.  Essentially, we calculate the number of correct predictions to the total number of predictions.  Measuring the 'Accuracy' on the training set is not appropriate.  We apply the model to the validation set (see results below) to calculate the 'Accuracy' of the model.
+```{r model_accuracy, include = TRUE, echo = TRUE, results = "markup"}
+model.accuracy <- data.frame(
+      Method = c("Rpart", "Boosting", "randomForest"),
+      Accuracy = rbind(round(confuseRPart$overall[1],4), 
+                        round(confuseGBM$overall[1],4), 
+                        round(confuseRF$overall[1],4)))
+model.accuracy
+```
+
+
+### Closer Look at Models
+
+fitRPart$results[1:3]
+fitGBM$results[4:6]
+fitRF$results[1:3]
 
 ### Exhibit 1: Correlation Factor of Each Variable with MPG
 ```{r corr_matrix_grid, include = FALSE, echo = FALSE, eval = FALSE}
