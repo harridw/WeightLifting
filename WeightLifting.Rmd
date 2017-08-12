@@ -77,12 +77,24 @@ lowNA.remove
 ```
 
 ```{r keep_variables_one, include = TRUE, echo = FALSE, results = "hide"}
-keep <- lowNA[9:length(lowNA)-1]   ## Exclude row index and 'classe' variable
+keep1 <- lowNA[9:length(lowNA)-1]   ## Exclude row index and 'classe' variable
 ```
 
-Variables evaluated to fit model:
+**Highly Correlated Variables**  
+Some models benefit by excluding those variables that are highly correlated.  Here we identify those variables with a correlation above 0.80.  We will run our models, with and without these highly correlated variables, to evaluate model performance.  
+```{r high_corr, include = TRUE, echo = TRUE, results = "markup"}
+train.corr <- training[, keep1]   ## Variables before considering correlation
+var.corr <- cor(train.corr)
+highly.corr <- findCorrelation(var.corr, cutoff = 0.80)  ## Correlation > 0.80
+keep2 <- names(train.corr[,-highly.corr])   ## Removing NA, Unrelated, & Correlated
+corr.excl <- names(train.corr[,highly.corr])
+corr.excl
+```
+
+
+**Variables evaluated to fit model (including correlated)**  
 ```{r keep_variables_two, include = TRUE, echo = FALSE, results = "markup"}
-keep
+keep1
 ```
 ```{r nzv_exclude, include = FALSE, echo = FALSE, eval = FALSE}
 ## Identify nearZeroVar which likely contribute nominally, if at all, to predictive model
@@ -101,16 +113,17 @@ As our outcome variable 'classe' is qualitative, a linear model does not make se
 
 A combined, or stacked, model was considered.  However, due to the results of these defined models, the 'potential' improvement in accuracy does not outweigh the loss of explanatory capability presented by the stacked model.  
 
-```{r model_develop, include = TRUE, echo = TRUE, results = "hide", cache = TRUE}
+**Prediction Models - before removing correlated variables**  
+```{r model_develop_all, include = TRUE, echo = TRUE, results = "hide", cache = TRUE}
 set.seed(100)
 fitCtrl <- trainControl(method = "cv", number = 5, search = "random", 
                         returnResamp = "all", savePredictions = "all",
                         classProbs = TRUE, selectionFunction = "best", trim = TRUE)
-fitRPart <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rpart", 
-                  tuneLength = round(sqrt(ncol(training[,c("classe",keep)]))), 
+fitRPart1 <- train(classe ~ ., data = training[ , c("classe", keep1)], method = "rpart", 
+                  tuneLength = round(sqrt(ncol(training[,c("classe",keep1)]))), 
                   trControl = fitCtrl, metric = "Accuracy")
-predRPart <- predict(fitRPart, newdata = validation[ ,c("classe", keep)])
-confuseRPart <- confusionMatrix(predRPart, validation$classe)
+predRPart1 <- predict(fitRPart1, newdata = validation[ ,c("classe", keep1)])
+confuseRPart1 <- confusionMatrix(predRPart1, validation$classe)
 
 set.seed(100)
 fitCtrl <- trainControl(method = "cv", number = 5, search = "random",
@@ -119,23 +132,62 @@ fitCtrl <- trainControl(method = "cv", number = 5, search = "random",
 gbmGrid <- expand.grid(.interaction.depth = 1,
                    .n.trees = seq(10,50,by=10),
                    .shrinkage = 0.1, .n.minobsinnode=2)
-fitGBM <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
+fitGBM1 <- train(classe ~ ., data = training[ , c("classe", keep1)], method = "gbm", 
                   tuneGrid = gbmGrid, trControl = fitCtrl,
                   metric = "Kappa", verbose = FALSE)
-predGBM <- predict(fitGBM, newdata = validation[ ,c("classe", keep)])
-confuseGBM <- confusionMatrix(predGBM, validation$classe)
+predGBM1 <- predict(fitGBM1, newdata = validation[ ,c("classe", keep1)])
+confuseGBM1 <- confusionMatrix(predGBM1, validation$classe)
 
 set.seed(100)
 fitCtrl <- trainControl(method = "oob", number = 5, search = "random",
                         returnResamp = "all", savePredictions = "all",
                         classProbs = TRUE, selectionFunction = "best", trim = TRUE)
-mtry <- c(1:round(sqrt(ncol(training[,c("classe",keep)]))))
+mtry <- c(1:round(sqrt(ncol(training[,c("classe",keep1)]))))
 rfGrid <- data.frame(.mtry = mtry)
-fitRF <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
+fitRF1 <- train(classe ~ ., data = training[ , c("classe", keep1)], method = "rf", 
                   tuneGrid = rfGrid, trControl = fitCtrl, 
                   metric = "Accuracy", importance = FALSE)
-predRF <- predict(fitRF, newdata = validation[ ,c("classe", keep)])
-confuseRF <- confusionMatrix(predRF, validation$classe)
+predRF1 <- predict(fitRF1, newdata = validation[ ,c("classe", keep1)])
+confuseRF1 <- confusionMatrix(predRF1, validation$classe)
+```
+
+
+**Prediction Models - after removing correlated variables**  
+```{r model_develop_cor, include = TRUE, echo = TRUE, results = "hide", cache = TRUE}
+set.seed(100)
+fitCtrl <- trainControl(method = "cv", number = 5, search = "random", 
+                        returnResamp = "all", savePredictions = "all",
+                        classProbs = TRUE, selectionFunction = "best", trim = TRUE)
+fitRPart2 <- train(classe ~ ., data = training[ , c("classe", keep2)], method = "rpart", 
+                  tuneLength = round(sqrt(ncol(training[,c("classe",keep2)]))), 
+                  trControl = fitCtrl, metric = "Accuracy")
+predRPart2 <- predict(fitRPart2, newdata = validation[ ,c("classe", keep2)])
+confuseRPart2 <- confusionMatrix(predRPart2, validation$classe)
+
+set.seed(100)
+fitCtrl <- trainControl(method = "cv", number = 5, search = "random",
+                        returnResamp = "all", savePredictions = "all",
+                        classProbs = TRUE, selectionFunction = "best", trim = TRUE)
+gbmGrid <- expand.grid(.interaction.depth = 1,
+                   .n.trees = seq(10,50,by=10),
+                   .shrinkage = 0.1, .n.minobsinnode=2)
+fitGBM2 <- train(classe ~ ., data = training[ , c("classe", keep2)], method = "gbm", 
+                  tuneGrid = gbmGrid, trControl = fitCtrl,
+                  metric = "Kappa", verbose = FALSE)
+predGBM2 <- predict(fitGBM2, newdata = validation[ ,c("classe", keep2)])
+confuseGBM2 <- confusionMatrix(predGBM2, validation$classe)
+
+set.seed(100)
+fitCtrl <- trainControl(method = "oob", number = 5, search = "random",
+                        returnResamp = "all", savePredictions = "all",
+                        classProbs = TRUE, selectionFunction = "best", trim = TRUE)
+mtry <- c(1:round(sqrt(ncol(training[,c("classe",keep2)]))))
+rfGrid <- data.frame(.mtry = mtry)
+fitRF2 <- train(classe ~ ., data = training[ , c("classe", keep2)], method = "rf", 
+                  tuneGrid = rfGrid, trControl = fitCtrl, 
+                  metric = "Accuracy", importance = FALSE)
+predRF2 <- predict(fitRF2, newdata = validation[ ,c("classe", keep2)])
+confuseRF2 <- confusionMatrix(predRF2, validation$classe)
 ```
 
 
@@ -143,44 +195,64 @@ confuseRF <- confusionMatrix(predRF, validation$classe)
 We use Accuracy as our measure of the performance or quality of a prediction.  Essentially, we calculate the number of correct predictions to the total number of predictions.  Measuring the 'Accuracy' on the training set is not appropriate.  We apply the model to the validation set (see results below) to evaluate the 'Accuracy' of the model.  
 
 **Model Accuracy**  
+We compare the accuracy of each method with and without the highly correlated varibles.  The 'Accuracy(Corr)' reflects the accurracy of the model excluding the highly correlated variables.    
 ```{r model_accuracy, include = TRUE, echo = TRUE, results = "markup"}
-model.accuracy <- data.frame(
-      Method = c("Rpart", "Boosting", "randomForest"),
-      Accuracy = rbind(round(confuseRPart$overall[1],4), 
-                        round(confuseGBM$overall[1],4), 
-                        round(confuseRF$overall[1],4)))
+Method <-  c("Rpart", "Boosting", "randomForest")
+AccuracyTtl <- c(round(confuseRPart1$overall[1],3), 
+                        round(confuseGBM1$overall[1],3), 
+                        round(confuseRF1$overall[1],3))
+AccuracyCorr <- c(round(confuseRPart2$overall[1],3), 
+                        round(confuseGBM2$overall[1],3), 
+                        round(confuseRF2$overall[1],3))
+model.accuracy <- data.frame(cbind(Method, AccuracyTtl, AccuracyCorr))
 model.accuracy
 ```
 
+```{r model_details, include = TRUE, echo = FALSE, results = "hide"}
+fitRPart1$results[1:3]
+fitGBM1$results[4:6]
+fitRF1$results[1:3]
 
-**Model Result Details**  
-```{r model_details, include = TRUE, echo = TRUE, results = "markup"}
-fitRPart$results[1:3]
-fitGBM$results[4:6]
-fitRF$results[1:3]
+fitRPart2$results[1:3]
+fitGBM2$results[4:6]
+fitRF2$results[1:3]
 ```
 
 
 **Variable Importance**  
 ```{r variable_importance, include = TRUE, echo = TRUE, results = "hide"}
-rpartImp <- varImp(fitRPart, scale = FALSE)
-gbmImp <- varImp(fitGBM, scale = FALSE)
-rfImp <- varImp(fitRF, scale = FALSE)
+rpartImp1 <- varImp(fitRPart1, scale = FALSE)
+gbmImp1 <- varImp(fitGBM1, scale = FALSE)
+rfImp1 <- varImp(fitRF1, scale = FALSE)
+
+rpartImp2 <- varImp(fitRPart2, scale = FALSE)
+gbmImp2 <- varImp(fitGBM2, scale = FALSE)
+rfImp2 <- varImp(fitRF2, scale = FALSE)
 ```
 
 ```{r plot_importance, fig.keep = "high", fig.show = "asis", fig.path = 'figure/'}
-par(mfrow = c(1,3))
-plot(rpartImp, top = 20, main = "Variable Importance - rpart")
-plot(gbmImp, top = 20, main = "Variable Importance - gbm")
-plot(rfImp, top = 20, main = "Variable Importance - rf")
+par(mfrow = c(2,3))
+plot(rpartImp1, top = 20, main = "Variable Importance - rpart")
+plot(gbmImp1, top = 20, main = "Variable Importance - gbm")
+plot(rfImp1, top = 20, main = "Variable Importance - rf")
+
+plot(rpartImp2, top = 20, main = "Variable Importance - rpart(Corr Adj)")
+plot(gbmImp2, top = 20, main = "Variable Importance - gbm (Corr Adj)")
+plot(rfImp2, top = 20, main = "Variable Importance - rf (Corr Adj)")
+
 ```
 
 
-## Predict on Test Set
-Upon reviewing the accuracy results of the three models, it was clear that our randomForest (rf) model produced the most accurate results on the validation set.  We will not predict 'classe' on each observation of the testing set.  
+## Prediction on Test Set
+Upon reviewing the accuracy results of the three models, it was clear that our randomForest (rf) model produced the most accurate results on the validation set.  We will now predict 'classe' on each observation of the testing set using the randomForest model.  
 ```{r testing_outcomes, include = TRUE, echo = TRUE, results = "markup"}
-predRF.test <- predict(fitRF, newdata = testing)
+predRF.test <- predict(fitRF2, newdata = testing)
 predRF.test.df <- data.frame(obs_id = testing$X, predOutcome = predRF.test)
 predRF.test.df
 ```
+
+
+## Conclusion  
+Although each model provides reasonable accuracy for predicting the outcome on the validation set, 'rpart' and 'rf' provide very high accuracy with 'rf' near perfect.  For this reason, the 'rf' model, excluding the correlated variables, is selected to predict the outcome for our testing set.
+
 
