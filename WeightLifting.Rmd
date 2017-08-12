@@ -93,16 +93,21 @@ nzv.disq <- rownames(nzv.disq)
 
 
 ## Model Selection
-As our outcome variable 'classe' is qualitative, a linear model does not make sense. We will be using the models listed below to predict the outcome.  In addition to each model indvidually, we will develop a combined, or stacked, model, to see if we can create a materially better model.  If the accuracy of selected model
+As our outcome variable 'classe' is qualitative, a linear model does not make sense. We will be using the models listed below to predict the outcome.  
+
+* Recursive Partitioning (rpart)  
+* Generalized Boosted Regression (gbm)  
+* randomForest (rf)  
+
+A combined, or stacked, model was considered.  However, due to the results of these defined models, the 'potential' improvement in accuracy does not outweigh the loss of explanatory capability presented by the stacked model.  
 
 ```{r model_develop, include = TRUE, echo = TRUE, results = "hide", cache = TRUE}
 set.seed(100)
 fitCtrl <- trainControl(method = "cv", number = 5, search = "random", 
                         returnResamp = "all", savePredictions = "all",
-                        classProbs = TRUE, selectionFunction = "best",
-                        preProcOptions = "scale", trim = TRUE)
+                        classProbs = TRUE, selectionFunction = "best", trim = TRUE)
 fitRPart <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rpart", 
-                  tuneLength = sqrt(ncol(training[,c("classe", keep)])), 
+                  tuneLength = round(sqrt(ncol(training[,c("classe",keep)]))), 
                   trControl = fitCtrl, metric = "Accuracy")
 predRPart <- predict(fitRPart, newdata = validation[ ,c("classe", keep)])
 confuseRPart <- confusionMatrix(predRPart, validation$classe)
@@ -110,10 +115,9 @@ confuseRPart <- confusionMatrix(predRPart, validation$classe)
 set.seed(100)
 fitCtrl <- trainControl(method = "cv", number = 5, search = "random",
                         returnResamp = "all", savePredictions = "all",
-                        classProbs = TRUE, selectionFunction = "best",
-                        preProcOptions = "scale", trim = TRUE)
+                        classProbs = TRUE, selectionFunction = "best", trim = TRUE)
 gbmGrid <- expand.grid(.interaction.depth = 1,
-                   .n.trees = seq(5,25,by=5),
+                   .n.trees = seq(10,50,by=10),
                    .shrinkage = 0.1, .n.minobsinnode=2)
 fitGBM <- train(classe ~ ., data = training[ , c("classe", keep)], method = "gbm", 
                   tuneGrid = gbmGrid, trControl = fitCtrl,
@@ -124,20 +128,21 @@ confuseGBM <- confusionMatrix(predGBM, validation$classe)
 set.seed(100)
 fitCtrl <- trainControl(method = "oob", number = 5, search = "random",
                         returnResamp = "all", savePredictions = "all",
-                        classProbs = TRUE, selectionFunction = "best",
-                        preProcOptions = "scale", trim = TRUE)
+                        classProbs = TRUE, selectionFunction = "best", trim = TRUE)
 mtry <- c(1:round(sqrt(ncol(training[,c("classe",keep)]))))
 rfGrid <- data.frame(.mtry = mtry)
 fitRF <- train(classe ~ ., data = training[ , c("classe", keep)], method = "rf", 
                   tuneGrid = rfGrid, trControl = fitCtrl, 
-                  metric = "Accuracy", importance = TRUE)
+                  metric = "Accuracy", importance = FALSE)
 predRF <- predict(fitRF, newdata = validation[ ,c("classe", keep)])
 confuseRF <- confusionMatrix(predRF, validation$classe)
 ```
 
 
 ## Model Performance  
-We use Accuracy as our measure of the performance or quality of a prediction.  Essentially, we calculate the number of correct predictions to the total number of predictions.  Measuring the 'Accuracy' on the training set is not appropriate.  We apply the model to the validation set (see results below) to evaluate the 'Accuracy' of the model.
+We use Accuracy as our measure of the performance or quality of a prediction.  Essentially, we calculate the number of correct predictions to the total number of predictions.  Measuring the 'Accuracy' on the training set is not appropriate.  We apply the model to the validation set (see results below) to evaluate the 'Accuracy' of the model.  
+
+**Model Accuracy**  
 ```{r model_accuracy, include = TRUE, echo = TRUE, results = "markup"}
 model.accuracy <- data.frame(
       Method = c("Rpart", "Boosting", "randomForest"),
@@ -148,8 +153,7 @@ model.accuracy
 ```
 
 
-### Closer Look at Model Results
-
+**Model Result Details**  
 ```{r model_details, include = TRUE, echo = TRUE, results = "markup"}
 fitRPart$results[1:3]
 fitGBM$results[4:6]
@@ -157,8 +161,26 @@ fitRF$results[1:3]
 ```
 
 
+**Variable Importance**  
+```{r variable_importance, include = TRUE, echo = TRUE, results = "hide"}
+rpartImp <- varImp(fitRPart, scale = FALSE)
+gbmImp <- varImp(fitGBM, scale = FALSE)
+rfImp <- varImp(fitRF, scale = FALSE)
+```
+
+```{r plot_importance, fig.keep = "high", fig.show = "asis", fig.path = 'figure/'}
+par(mfrow = c(1,3))
+plot(rpartImp, top = 20, main = "Variable Importance - rpart")
+plot(gbmImp, top = 20, main = "Variable Importance - gbm")
+plot(rfImp, top = 20, main = "Variable Importance - rf")
+```
 
 
-
-
+## Predict on Test Set
+Upon reviewing the accuracy results of the three models, it was clear that our randomForest (rf) model produced the most accurate results on the validation set.  We will not predict 'classe' on each observation of the testing set.  
+```{r testing_outcomes, include = TRUE, echo = TRUE, results = "markup"}
+predRF.test <- predict(fitRF, newdata = testing)
+predRF.test.df <- data.frame(obs_id = testing$X, predOutcome = predRF.test)
+predRF.test.df
+```
 
