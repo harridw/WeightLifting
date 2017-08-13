@@ -1,6 +1,7 @@
 ---
-title: "Machine Learning: Evaluate Weight Lifting Techniques"
-author: "Edward Harris"
+title: "Machine Learning: Evaluate Weight Lifting"
+author: "Eward Harris"
+date: "Aug 13, 2017"
 output: html_document
 ---
 
@@ -271,5 +272,4 @@ predRF.test.df
 
 ## Conclusion  
 Although each model provides reasonable accuracy for predicting the outcome on the validation set, 'rpart' and 'rf' provide very high accuracy, with 'rf' near perfect.  Additionally, the effect offect of removing highly correlated variables was not significant.  For this reason, the 'rf' model, excluding the correlated variables, is selected to predict the outcome for our testing set.
-
 
