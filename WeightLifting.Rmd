@@ -2,10 +2,10 @@
 title: "Machine Learning: Evaluate Weight Lifting Techniques"
 author: "Edward Harris"
 output: html_document
-
 ---
 
 ```{r setup, include = FALSE, echo = TRUE, results = "hide"}
+## Install / Load packages anticipated to be used in program
 ipak <- function(pkg){
       new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
       if (length(new.pkg)) 
@@ -25,13 +25,11 @@ ipak(packages)
 
 ## Executive Summary  
 **Background** 
-```r
 Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.  
-```
+
+
 **Analysis Goal**  
-```r
 In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here:  
-```
 <http://groupware.les.inf.puc-rio.br/har>  (see the section on the Weight Lifting Exercise Dataset). 
 
 ## Data Processing
@@ -73,6 +71,7 @@ lowNA <- names(pctNA)[pctNA < 0.80]   ## Exclude column names with 80%+ NA
 **Remove Unnecessary Variables**  
 The analysis focuses on the data produced by the various accelerometers, not the individuals and/or time related to the data.  To avoid these items influencing our model, they are excluded here.
 ```{r remove_unrelated, include = TRUE, echo = TRUE, results = "markup"}
+## Removes variables referencing the user, observation (row index), and date/time
 lowNA.remove <- lowNA[1:7]
 lowNA.remove
 ```
@@ -87,7 +86,7 @@ Some models benefit by excluding those variables that are highly correlated.  He
 train.corr <- training[, keep1]   ## Variables before considering correlation
 var.corr <- cor(train.corr)
 highly.corr <- findCorrelation(var.corr, cutoff = 0.80)  ## Correlation > 0.80
-keep2 <- names(train.corr[,-highly.corr])   ## Removing NA, Unrelated, & Correlated
+keep2 <- names(train.corr[,-highly.corr])   ## Removing NA, Unrelated, & Highly Correlated
 corr.excl <- names(train.corr[,highly.corr])
 corr.excl
 ```
@@ -116,6 +115,14 @@ A combined, or stacked, model was considered.  However, due to the results of th
 
 **Prediction Models**  
 Below is code used for the prediction model / methods.  This code uses data that includes highly correlated variables.  To understand the effects of the highly correlated variables, this same code was applied to data sets that excluded these varaiables as well.  
+
+
+**Cross Validation**  
+The purpose or goal of cross validation is to minimize the generalization error.  As a model is built or developed on training set data, it may not apply as well to another data set.  This is often the result of overfitting the model on the training set.  To control for this generalization error, two approaches were applied:  
+
+1. apply cross validation within each model (resampling)  
+2. evaluate model performance on 'validation' set before applying to testing set.  
+
 ```{r model_develop_all, include = TRUE, echo = TRUE, results = "hide", cache = TRUE}
 set.seed(100)
 fitCtrl <- trainControl(method = "cv", number = 5, search = "random", 
@@ -196,13 +203,6 @@ confuseRF2 <- confusionMatrix(predRF2, validation$classe)
 We use Accuracy as our measure of the performance or quality of a prediction.  Essentially, we calculate the number of correct predictions to the total number of predictions.  Measuring the 'Accuracy' on the training set is not appropriate.  We apply the model to the validation set (see results below) to evaluate the 'Accuracy' of the model.  
 
 
-**Cross Validation**  
-The purpose or goal of cross validation is to minimize the generalization error.  As a model is built or developed on training set data, it may not apply as well to another data set.  This is often the result of overfitting the model on the training set.  To control for this generalization error, two approaches were applied:  
-
-1. apply cross validation within each model (resampling)  
-2. evaluate model performance on 'validation' set before applying to testing set.  
-
-
 **Model Accuracy**  
 We compare the accuracy of each method with and without the highly correlated varibles.  The 'AccuracyCorr' reflects the accurracy of the model excluding the highly correlated variables.    
 ```{r model_accuracy, include = TRUE, echo = TRUE, results = "markup", warning = FALSE}
@@ -270,6 +270,6 @@ predRF.test.df
 
 
 ## Conclusion  
-Although each model provides reasonable accuracy for predicting the outcome on the validation set, 'rpart' and 'rf' provide very high accuracy, with 'rf' near perfect.  For this reason, the 'rf' model, excluding the correlated variables, is selected to predict the outcome for our testing set.
+Although each model provides reasonable accuracy for predicting the outcome on the validation set, 'rpart' and 'rf' provide very high accuracy, with 'rf' near perfect.  Additionally, the effect offect of removing highly correlated variables was not significant.  For this reason, the 'rf' model, excluding the correlated variables, is selected to predict the outcome for our testing set.
 
 
