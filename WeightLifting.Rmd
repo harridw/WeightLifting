@@ -2,7 +2,9 @@
 title: "Machine Learning: Evaluate Weight Lifting"
 author: "Eward Harris"
 date: "Aug 13, 2017"
-output: html_document
+output: 
+   html_document:
+      keep_md: true
 ---
 
 ```{r setup, include = FALSE, echo = TRUE, results = "hide"}
