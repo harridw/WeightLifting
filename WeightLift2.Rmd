@@ -1,0 +1,54 @@
+---
+title: 'Practical Machine Learning: Evaluate WeightLifting'
+author: "Edward Harris"
+date: "Aug 13, 2017"
+output: html_document
+---
+
+
+```{r setup, include = FALSE, echo = TRUE, results = "hide"}
+## Install / Load packages anticipated to be used in program
+ipak <- function(pkg){
+      new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+      if (length(new.pkg)) 
+            install.packages(new.pkg, dependencies = TRUE)
+      sapply(pkg, require, character.only = TRUE)
+}
+
+### Package Usage
+packages <- c("plyr", "dplyr", "data.table", "dtplyr", "lubridate", "ggplot2", "scales",
+                  "reshape2", "knitr", "R.cache", "stringr", "gtools", "quantreg",
+                  "graphics", "corrplot", "broom", "rmarkdown", "caret", "randomForest",
+                  "gbm", "forecast", "elasticnet", "e1071", "glmnet", "quantmod", "rpart",
+                  "rpart.plot", "rattle", "knitr", "tidyverse", "purrr", "mda", "ROCR",
+                  "verification", "pROC", "tree", "stringr", "cvTools")
+ipak(packages)
+```
+
+
+## Executive Summary  
+**Background** 
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.  
+
+
+**Analysis Goal**  
+In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here:  
+<http://groupware.les.inf.puc-rio.br/har>  (see the section on the Weight Lifting Exercise Dataset). 
+
+## Data Processing
+
+**Load Data into R**  
+```{r load_weightlift_csv, include = TRUE, echo = TRUE, results = "hold"}
+train.file = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test.file = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+training <- read.csv(train.file, header = TRUE, 
+                  na.strings = c("NA","N/A","NULL","Null","null",""," ","  ","#DIV/0!"))
+testing <- read.csv(test.file, header = TRUE, 
+                  na.strings = c("NA","N/A","NULL","Null","null",""," ","  ","#DIV/0!"))
+dim(training)
+dim(testing)
+```
+
+
+
